@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { chat } from "@/lib/api";
 import type { Answer, CaseState, Lang, Msg } from "@/lib/types";
@@ -8,6 +8,10 @@ import EscalationCard from "./EscalationCard";
 import SourcePanel from "./SourcePanel";
 
 const TAG = /(\[[A-Z]-\d{3}\])/g;
+// Strip citation tags and extra whitespace before speaking
+function toSpeakable(text: string) {
+  return text.replace(TAG, "").replace(/\s+/g, " ").trim();
+}
 
 function MessageText({ text, onOpen }: { text: string; onOpen: (id: string) => void }) {
   return <>{text.split(TAG).map((part, i) => {
@@ -30,6 +34,8 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [ttsSupported, setTtsSupported] = useState(false);
+  const [speakingId, setSpeakingId] = useState<number | null>(null);
   const caseState = useRef<CaseState>(initialCaseState ?? null);
   const nextId = useRef((initialMsgs?.length ?? 0) + 1);
   const bottom = useRef<HTMLDivElement>(null);
@@ -41,7 +47,7 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [msgs]);
 
-  // Call onUpdate when a response finishes (busy → false) — never inside a setState updater
+  // Call onUpdate when a response finishes (busy â†’ false)
   const prevBusy = useRef(false);
   useEffect(() => {
     if (prevBusy.current && !busy && msgs.length > 0) {
@@ -54,12 +60,45 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setVoiceSupported(!!SR);
+    setTtsSupported(!!window.speechSynthesis);
   }, []);
 
+  // â”€â”€ TTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function speak(msgId: number, text: string) {
+    if (!window.speechSynthesis) return;
+    if (speakingId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(toSpeakable(text));
+    utt.lang = lang === "hi" ? "hi-IN" : "en-IN";
+    utt.rate = 0.92;
+    utt.pitch = 1;
+    // Pick a natural-sounding voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.lang.startsWith(lang === "hi" ? "hi" : "en") && !v.name.toLowerCase().includes("google")
+    ) || voices.find(v => v.lang.startsWith(lang === "hi" ? "hi" : "en"));
+    if (preferred) utt.voice = preferred;
+    utt.onend = () => setSpeakingId(null);
+    utt.onerror = () => setSpeakingId(null);
+    setSpeakingId(msgId);
+    window.speechSynthesis.speak(utt);
+  }
+
+  function stopSpeaking() {
+    window.speechSynthesis?.cancel();
+    setSpeakingId(null);
+  }
+
+  // â”€â”€ STT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function startListening() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) return;
+    stopSpeaking(); // stop TTS if speaking
     const recognition = new SR();
     recognition.lang = lang === "hi" ? "hi-IN" : "en-IN";
     recognition.continuous = false;
@@ -91,6 +130,7 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
   async function send(override?: string) {
     const message = (override ?? input).trim();
     if (!message || busy) return;
+    stopSpeaking();
     const fileLabel = attachedFile ? ` [Attached: ${attachedFile.name}]` : "";
     const botId = nextId.current + 1;
     setMsgs((m) => [
@@ -141,14 +181,14 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
         )}
         {msgs.map((m) => (
           <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-            <div className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%] ${
+            <div className={`group relative max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%] ${
               m.role === "user"
                 ? "bg-gradient-to-b from-[#2DD4BF] to-[#0D9488] font-medium text-black"
                 : m.error
                   ? "bg-red-950/60 text-red-200"
                   : "bg-[#1b2740] text-neutral-100"
             }`}>
-              {/* Attached file chip in message */}
+              {/* Attached file chip */}
               {m.file && (
                 <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-black/20 px-2.5 py-1.5 text-xs">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -172,6 +212,37 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
                   {m.answer && (
                     <EscalationCard flags={m.answer.flags} urgentTitle={t.urgentTitle} warnTitle={t.warnTitle} />
                   )}
+                  {/* TTS button â€” only on bot messages with text */}
+                  {m.role === "bot" && !m.error && m.text && ttsSupported && (
+                    <button
+                      type="button"
+                      onClick={() => speak(m.id, m.text)}
+                      aria-label={speakingId === m.id ? "Stop speaking" : "Read aloud"}
+                      title={speakingId === m.id ? "Stop" : "Read aloud"}
+                      className={`mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition-colors ${
+                        speakingId === m.id
+                          ? "bg-[#14B8A6]/20 text-[#2DD4BF]"
+                          : "text-neutral-500 hover:bg-white/5 hover:text-[#14B8A6]"
+                      }`}
+                    >
+                      {speakingId === m.id ? (
+                        <>
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-pulse" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                          </svg>
+                          Stop
+                        </>
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                          </svg>
+                          Listen
+                        </>
+                      )}
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -190,24 +261,35 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
           <span className="flex-1 truncate">{attachedFile.name}</span>
           <span className="text-neutral-500">({(attachedFile.size / 1024).toFixed(1)} KB)</span>
           <button type="button" onClick={() => setAttachedFile(null)} aria-label="Remove attachment"
-            className="ml-1 rounded px-1 hover:text-white">✕</button>
+            className="ml-1 rounded px-1 hover:text-white">âœ•</button>
         </div>
       )}
 
-      {/* Voice listening indicator */}
+      {/* Listening indicator */}
       {isListening && (
         <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-950/40 px-3 py-2 text-xs text-red-300">
           <span className="relative flex h-2.5 w-2.5 shrink-0">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
           </span>
-          {lang === "hi" ? "सुन रहा हूँ… बोलिए" : "Listening… speak now"}
+          {lang === "hi" ? "à¤¸à¥à¤¨ à¤°à¤¹à¤¾ à¤¹à¥‚à¤â€¦ à¤¬à¥‹à¤²à¤¿à¤" : "Listeningâ€¦ speak now"}
+        </div>
+      )}
+
+      {/* Speaking indicator */}
+      {speakingId !== null && (
+        <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-[#14B8A6]/40 bg-[#0e1626] px-3 py-2 text-xs text-[#2DD4BF]">
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#14B8A6] opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#14B8A6]" />
+          </span>
+          {lang === "hi" ? "à¤¬à¥‹à¤² à¤°à¤¹à¤¾ à¤¹à¥‚à¤â€¦" : "Speakingâ€¦"}
+          <button type="button" onClick={stopSpeaking} className="ml-auto text-neutral-400 hover:text-white">âœ•</button>
         </div>
       )}
 
       {/* Input bar */}
       <div className="px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-        {/* Hidden file input */}
         <input
           ref={fileRef}
           type="file"
@@ -219,7 +301,6 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
             e.target.value = "";
           }}
         />
-
         <form
           onSubmit={(e) => { e.preventDefault(); send(); }}
           className="flex items-center gap-2 rounded-full border border-[#14B8A6]/70 bg-[#0e1626] p-1.5 pl-2"
@@ -232,7 +313,6 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
             </svg>
           </span>
 
-          {/* Text input */}
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -242,31 +322,22 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
           />
 
           {/* Attach button */}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            aria-label="Attach document"
-            title="Attach document (PDF, image, Word, TXT)"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-white/10 hover:text-[#14B8A6]"
-          >
+          <button type="button" onClick={() => fileRef.current?.click()} aria-label="Attach document"
+            title="Attach document"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-white/10 hover:text-[#14B8A6]">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
             </svg>
           </button>
 
-          {/* Voice button */}
+          {/* Voice input button */}
           {voiceSupported && (
-            <button
-              type="button"
-              onClick={toggleVoice}
-              aria-label={isListening ? "Stop listening" : "Start voice input"}
+            <button type="button" onClick={toggleVoice}
+              aria-label={isListening ? "Stop listening" : "Speak your question"}
               title={isListening ? "Stop listening" : "Speak your question"}
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
-                isListening
-                  ? "bg-red-500 text-white"
-                  : "text-neutral-400 hover:bg-white/10 hover:text-[#14B8A6]"
-              }`}
-            >
+                isListening ? "bg-red-500 text-white" : "text-neutral-400 hover:bg-white/10 hover:text-[#14B8A6]"
+              }`}>
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -277,19 +348,13 @@ export default function ChatStream({ lang, t, greeting, suggestions = [], note, 
           )}
 
           {/* Send button */}
-          <button
-            type="submit"
-            disabled={busy || !input.trim()}
-            aria-label={t.send}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#14B8A6] text-black hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-          >
+          <button type="submit" disabled={busy || !input.trim()} aria-label={t.send}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#14B8A6] text-black hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 2L11 13" />
-              <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+              <path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" />
             </svg>
           </button>
         </form>
-
         {note && <p className="mt-2 text-center text-xs text-neutral-500">{note}</p>}
       </div>
 
