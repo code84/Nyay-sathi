@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import ChatStream from "@/components/ChatStream";
 import DisclaimerBanner from "@/components/DisclaimerBanner";
@@ -35,13 +35,18 @@ export default function Home() {
   const c = homeCopy(lang);
   const { conversations, save, remove } = useHistory();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeConv, setActiveConv] = useState<Conversation>(() => makeConversation(lang));
+  // Use a stable SSR-safe placeholder; replaced with a real ID on client mount
+  const [activeConv, setActiveConv] = useState<Conversation>({
+    id: "initial", title: "New case", createdAt: 0, updatedAt: 0,
+    messages: [], caseState: null, lang,
+  });
+  useEffect(() => { setActiveConv(makeConversation(lang)); }, []);
   const chatRef = useRef<HTMLElement>(null);
 
   const handleUpdate = useCallback((msgs: Msg[], caseState: CaseState) => {
     if (msgs.length === 0) return;
     const title = msgs.find((m) => m.role === "user")?.text.slice(0, 50) ?? "New case";
-    save({ ...activeConv, title, messages: msgs, caseState, updatedAt: Date.now(), lang });
+    save({ ...activeConv, title, messages: msgs, caseState, updatedAt: typeof window !== "undefined" ? Date.now() : 0, lang });
   }, [activeConv, lang, save]);
 
   const handleNewCase = useCallback(() => {

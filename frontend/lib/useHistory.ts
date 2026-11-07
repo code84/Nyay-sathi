@@ -29,7 +29,12 @@ function persist(list: Conversation[]) {
 }
 
 export function makeConversation(lang: Lang): Conversation {
-  return { id: newId(), title: "New case", createdAt: Date.now(), updatedAt: Date.now(), messages: [], caseState: null, lang };
+  // Safe to call only on the client (Date.now / Math.random are non-deterministic)
+  const now = typeof window !== "undefined" ? Date.now() : 0;
+  const id = typeof window !== "undefined"
+    ? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    : "initial";
+  return { id, title: "New case", createdAt: now, updatedAt: now, messages: [], caseState: null, lang };
 }
 
 export function useHistory() {
