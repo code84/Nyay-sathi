@@ -1,0 +1,12 @@
+seller_name:
+  en: "Who did you buy from? (the shop, website or app name)"
+  hi: "आपने किससे खरीदा? (दुकान, वेबसाइट या ऐप का नाम)"
+amount:
+  en: "How much did you pay, in rupees?"
+  hi: "आपने कितने रुपये दिए?"
+issue:
+  en: "What went wrong? (for example: not delivered, defective, wrong item, order cancelled)"
+  hi: "क्या समस्या हुई? (जैसे: सामान नहीं पहुँचा, खराब निकला, गलत सामान आया, ऑर्डर कैंसिल हुआ)"
+refusal_date:
+  en: "On what date did the seller refuse, or fail, to refund you? (day, month and year)"
+  hi: "विक्रेता ने किस तारीख को रिफंड देने से मना किया या रिफंड नहीं दिया? (दिन, महीना और साल)"

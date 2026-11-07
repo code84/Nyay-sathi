@@ -1,0 +1,41 @@
+id: notice_cheque_bounce
+type: document
+title: Cheque bounce (dishonour) notice
+triggers: [cheque, dishonour, section 138, returned unpaid, insufficient funds]
+facts_to_collect: [bank_info_date, notice_date, notice_receipt_date, cheque_amount, payment_made]
+deadline_rules:
+  - id: payee_notice_deadline
+    label: Payee's last day to send the written demand notice (30 days from the bank's information)
+    start_fact: bank_info_date
+    add: {days: 30}
+    library: [N-002]
+    warn_days: 7
+  - id: drawer_payment_window
+    label: Last day for the person who issued the cheque to pay (15 days from receiving the notice)
+    start_fact: notice_receipt_date
+    add: {days: 15}
+    library: [N-002]
+    warn_days: 5
+  - id: complaint_deadline
+    label: Last day for the payee to file the complaint (one month after the payment window)
+    after_rule: drawer_payment_window
+    add: {months: 1}
+    library: [N-004]
+    warn_days: 7
+    approximate: true
+    note: "Counted from the end of the 15-day window. This is the earlier (safer) reading; the court counts from the day the window lapses. Confirm with a lawyer."
+red_flags:
+  - id: court_summons
+    when: {fact: court_summons_received, equals: true}
+    severity: urgent
+    message: "A court summons is a court case, not just a notice. Contact a lawyer immediately."
+fact_types:
+  bank_info_date: date
+  notice_date: date
+  notice_receipt_date: date
+  cheque_amount: number
+  payment_made: bool
+  court_summons_received: bool
+ask_facts: [notice_receipt_date, court_summons_received]
+notice_date_fact: notice_date
+amount_fact: cheque_amount

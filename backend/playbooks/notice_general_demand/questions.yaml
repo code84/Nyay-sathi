@@ -1,0 +1,9 @@
+notice_receipt_date:
+  en: "On what date did you receive this notice?"
+  hi: "आपको यह नोटिस किस तारीख को मिला?"
+cause_date:
+  en: "On what date did the dispute start, for example when the payment was due or the contract was broken?"
+  hi: "विवाद किस तारीख को शुरू हुआ, जैसे भुगतान की तारीख या अनुबंध टूटने की तारीख?"
+court_summons_received:
+  en: "Have you also received a court summons? (yes/no)"
+  hi: "क्या आपको अदालत का समन भी मिला है? (हाँ/नहीं)"

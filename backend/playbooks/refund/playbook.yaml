@@ -1,0 +1,35 @@
+id: refund
+type: case
+title: Refund not received (online or shop purchase)
+triggers: [refund, money back, not delivered, defective, cancelled order, replacement]
+facts_to_collect: [seller_name, order_date, amount, payment_mode, issue, refusal_date, seller_response, is_online_platform, threatened]
+required_facts: [seller_name, amount, issue, refusal_date]
+fact_types:
+  amount: number
+  order_date: date
+  refusal_date: date
+  is_online_platform: bool
+  threatened: bool
+options_ladder: [seller_complaint, platform_grievance_officer, national_consumer_helpline, written_demand_notice, consumer_commission]
+deadline_rules:
+  - id: complaint_limitation
+    label: Time limit to file a consumer complaint (two years)
+    start_fact: refusal_date
+    add: {years: 2}
+    library: [C-005]
+    warn_days: 60
+    approximate: true
+    note: "Counted from the date the refund was refused. The exact start (cause of action) can be argued, so confirm with a lawyer if close."
+forum:
+  fact: amount
+  library: [C-004]
+  caveat: "Based on the amount PAID, not the compensation claimed. Limits come from the 2021 Rules (secondary source, not yet verified against the Gazette)."
+  tiers:
+    - {name: District Commission, upto: 5000000}
+    - {name: State Commission, upto: 20000000}
+    - {name: National Commission}
+red_flags:
+  - id: threat_or_violence
+    when: {fact: threatened, equals: true}
+    severity: urgent
+    message: "You mention threats or violence. This is beyond a refund dispute: contact the police and a lawyer."

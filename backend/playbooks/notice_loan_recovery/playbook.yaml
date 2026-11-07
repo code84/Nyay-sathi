@@ -1,0 +1,44 @@
+id: notice_loan_recovery
+type: document
+title: Loan recovery notice from a lender (secured loans)
+triggers: [loan, EMI, NPA, SARFAESI, possession, auction, secured asset, recovery]
+facts_to_collect: [sarfaesi_notice_date, objection_date, measure_date, is_secured_loan, possession_or_auction_notice]
+deadline_rules:
+  - id: pay_in_full_60
+    label: End of the 60-day period in the lender's notice
+    start_fact: sarfaesi_notice_date
+    add: {days: 60}
+    library: [L-001]
+    warn_days: 14
+    note: "The 60 days run from the date of the notice, not from when you received it."
+  - id: lender_reply_to_objection
+    label: Lender's deadline to reply to your written objection (15 days)
+    start_fact: objection_date
+    add: {days: 15}
+    library: [L-003]
+    warn_days: 3
+  - id: drt_application
+    label: Last day to apply to the Debts Recovery Tribunal (45 days from the lender's action)
+    start_fact: measure_date
+    add: {days: 45}
+    library: [L-005]
+    warn_days: 14
+red_flags:
+  - id: possession_or_auction
+    when: {fact: possession_or_auction_notice, equals: true}
+    severity: urgent
+    message: "A possession or auction notice is urgent. Contact a lawyer today."
+  - id: not_secured
+    when: {fact: is_secured_loan, equals: false}
+    severity: warn
+    message: "SARFAESI applies to secured loans only. If your loan is unsecured, these rules may not apply; check with a lawyer."
+fact_types:
+  sarfaesi_notice_date: date
+  objection_date: date
+  measure_date: date
+  amount: number
+  is_secured_loan: bool
+  possession_or_auction_notice: bool
+ask_facts: [is_secured_loan, possession_or_auction_notice, measure_date]
+notice_date_fact: sarfaesi_notice_date
+amount_fact: amount

@@ -1,0 +1,9 @@
+is_secured_loan:
+  en: "Is this loan secured, for example a home loan or a loan against property? (yes/no)"
+  hi: "क्या यह लोन सुरक्षित (secured) है, जैसे होम लोन या संपत्ति के बदले लोन? (हाँ/नहीं)"
+possession_or_auction_notice:
+  en: "Have you received a notice of possession or auction of your property? (yes/no)"
+  hi: "क्या आपको अपनी संपत्ति के कब्जे या नीलामी का नोटिस मिला है? (हाँ/नहीं)"
+measure_date:
+  en: "If the lender has already taken a step such as taking possession, on what date?"
+  hi: "अगर बैंक ने कब्जा लेने जैसा कोई कदम उठा लिया है, तो किस तारीख को?"

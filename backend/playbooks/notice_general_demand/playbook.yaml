@@ -1,0 +1,35 @@
+id: notice_general_demand
+type: document
+title: General demand or payment notice
+triggers: [demand, payment notice, legal notice, pay within, dues]
+facts_to_collect: [notice_receipt_date, stated_days, cause_date, amount]
+deadline_rules:
+  - id: sender_deadline
+    label: Deadline stated by the sender in the notice
+    start_fact: notice_receipt_date
+    add: {days_from_fact: stated_days}
+    library: []
+    warn_days: 3
+    note: "This is the deadline the SENDER wrote, not a deadline set by law."
+  - id: general_limitation
+    label: General time limit to sue (3 years)
+    start_fact: cause_date
+    add: {years: 3}
+    library: [G-001, G-005]
+    warn_days: 60
+    approximate: true
+    note: "General rule for money lent / breach of contract / unlisted claims. The Schedule has other periods, so confirm with a lawyer."
+red_flags:
+  - id: court_summons
+    when: {fact: court_summons_received, equals: true}
+    severity: urgent
+    message: "A court summons is a court case, not just a notice. Contact a lawyer immediately."
+fact_types:
+  notice_receipt_date: date
+  stated_days: number
+  cause_date: date
+  amount: number
+  court_summons_received: bool
+ask_facts: [notice_receipt_date, cause_date, court_summons_received]
+amount_fact: amount
+deadline_days_fact: stated_days
