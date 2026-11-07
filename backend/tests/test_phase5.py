@@ -31,7 +31,8 @@ def test_invented_fact_is_dropped():
     assert "amount" not in c.facts and "seller_name" in c.facts and "amount" in c.missing
 
 def test_bad_types_are_dropped():
-    bad = ext(amount=("1.5 lakh", "Rs 20,000"), refusal_date=("June 1", "1 June 2026"))
+    # "1.5 lakh" is rejected by number coercion; "N/A" is rejected by date coercion
+    bad = ext(amount=("1.5 lakh", "Rs 20,000"), refusal_date=("N/A", "1 June 2026"))
     c = update_case(FakeLLM([bad]), fresh(), MSG, load_playbook("refund"), T)
     assert "amount" not in c.facts and "refusal_date" not in c.facts
 
@@ -62,7 +63,8 @@ def test_danger_words():
     assert danger_flags("he threatened to kill me") and danger_flags("वह धमकी दे रहा है") and not danger_flags("refund please")
 
 def test_flow_asks_then_answers():
-    llm = FakeLLM([TRIAGE, ext(seller_name=("ShopX", "ShopX"))])
+    # keyword pre-triage routes "refund" directly — no triage LLM call consumed
+    llm = FakeLLM([ext(seller_name=("ShopX", "ShopX"))])
     r1 = case_turn(llm, None, "ShopX refused my refund", T)
     assert r1.route == "case" and not r1.ready and r1.answer is None and len(r1.questions) == 2
     llm.replies += [GOOD, ANSWER]

@@ -29,14 +29,15 @@ def test_health():
     assert client().get("/health").json() == {"status": "ok"}
 
 def test_chat_first_turn_asks_questions():
-    r = client([TRIAGE, EXT]).post("/chat", json={"message": "ShopX refused my refund"})
+    # keyword pre-triage routes "refund" directly — only extraction LLM call needed
+    r = client([EXT]).post("/chat", json={"message": "ShopX refused my refund"})
     j = r.json()
     assert r.status_code == 200 and j["route"] == "case" and len(j["questions"]) == 2 and j["case"]["facts"]["seller_name"]["value"] == "ShopX"
 
 def test_chat_validation():
     c = client()
     assert c.post("/chat", json={"message": ""}).status_code == 422
-    assert c.post("/chat", json={"message": "x" * 4001}).status_code == 422
+    assert c.post("/chat", json={"message": "x" * 15001}).status_code == 422   # max_length is now 15000
     assert c.post("/chat", json={"message": "hi", "case": {"playbook_id": "nope"}}).status_code == 400
 
 def test_notice_analyze():

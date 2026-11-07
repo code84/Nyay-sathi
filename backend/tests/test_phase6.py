@@ -28,7 +28,9 @@ ANS = json.dumps({"text": "The notice says you must pay within 15 days of receiv
                   "citations": [{"item_id": "N-002", "quote": "within fifteen days of the receipt of the said notice"}], "confidence": "library"})
 
 def test_extraction_drops_invented_quote_and_bad_values():
-    bad = EX(amount=q("90000", "Rs 90,000"), notice_date=q("3rd June", "3 June 2026"))
+    # amount quote "Rs 90,000" not in NOTICE (which says Rs 50,000) — dropped
+    # notice_date value "N/A" cannot be coerced to date — dropped
+    bad = EX(amount=q("90000", "Rs 90,000"), notice_date=q("N/A", "3 June 2026"))
     ex, dropped = extract_notice(FakeLLM([bad]), NOTICE)
     assert ex.amount.value is None and ex.notice_date.value is None
     assert {"amount", "notice_date"} <= set(dropped) and ex.sender.value == "Advocate R. Sharma"

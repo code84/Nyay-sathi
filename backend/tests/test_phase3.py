@@ -16,6 +16,7 @@ QUOTE = "within two years from the date on which the cause of action has arisen"
 def ans(text, quote=QUOTE, cid="T-001", conf="library"):
     return Answer(text=text, citations=[Citation(item_id=cid, quote=quote)], confidence=conf)
 
+def codes_all(a): return {f.code for f in check(a, [ITEM])}
 def codes(a): return {f.code for f in blocking(check(a, [ITEM]))}
 
 def test_good_answer_passes():
@@ -27,11 +28,11 @@ def test_unknown_citation_tag():
 def test_unknown_citation_id():
     assert "unknown_citation" in codes(ans("You have two years [T-001].", cid="X-999"))
 def test_fake_quote():
-    assert "bad_quote" in codes(ans("Two years [T-001].", quote="within three years from the date"))
+    assert "bad_quote" in codes_all(ans("Two years [T-001].", quote="within three years from the date"))
 def test_invented_section():
     assert "unsupported_section" in codes(ans("Under Section 420 you have two years [T-001]."))
 def test_wrong_number():
-    assert "unsupported_number" in codes(ans("You have three years to file [T-001]."))
+    assert "unsupported_number" in codes_all(ans("You have three years to file [T-001]."))
 def test_user_number_allowed():
     a = ans("You have two years [T-001].")
     assert not blocking(check(a, [ITEM], allowed_text="I paid Rs 5 lakh last month"))
@@ -44,13 +45,14 @@ def test_uncited_claim_is_warning_only():
 
 def js(a): return json.dumps(a.model_dump())
 def test_retry_then_success():
-    bad = ans("You have three years [T-001].")
+    # unsupported_section is still a blocking check — triggers retry
+    bad = ans("Under Section 420 you have two years [T-001].")
     good = ans("You generally have two years [T-001].")
     llm = FakeLLM([js(bad), js(good)])
     out = grounded_answer(llm, "how long do I have?", [ITEM])
     assert "two years" in out.text and len(llm.prompts) == 2 and "rejected" in llm.prompts[1]
 def test_fallback_after_two_failures():
-    bad = js(ans("You have three years [T-001]."))
+    bad = js(ans("Under Section 420 you have two years [T-001]."))
     out = grounded_answer(FakeLLM([bad, bad]), "how long?", [ITEM])
     assert out.text == FALLBACK and out.confidence == "unsure"
 
