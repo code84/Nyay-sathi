@@ -4,7 +4,7 @@ import type { CaseState, Lang, Msg } from "./types";
 
 export interface Conversation {
   id: string;
-  title: string;       // first user message, truncated
+  title: string;
   createdAt: number;
   updatedAt: number;
   messages: Msg[];
@@ -15,8 +15,15 @@ export interface Conversation {
 const KEY = "ns-history";
 const MAX = 30;
 
-function newId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+function newId(): string {
+  // crypto.randomUUID is available in both browser and Node.js — no Date.now needed
+  try { return crypto.randomUUID(); }
+  catch { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+}
+
+function now(): number {
+  // Safe timestamp — only called client-side (inside useEffect or event handlers)
+  return typeof performance !== "undefined" ? Math.floor(performance.timeOrigin + performance.now()) : 0;
 }
 
 function load(): Conversation[] {
@@ -29,12 +36,8 @@ function persist(list: Conversation[]) {
 }
 
 export function makeConversation(lang: Lang): Conversation {
-  // Safe to call only on the client (Date.now / Math.random are non-deterministic)
-  const now = typeof window !== "undefined" ? Date.now() : 0;
-  const id = typeof window !== "undefined"
-    ? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    : "initial";
-  return { id, title: "New case", createdAt: now, updatedAt: now, messages: [], caseState: null, lang };
+  const ts = now();
+  return { id: newId(), title: "New case", createdAt: ts, updatedAt: ts, messages: [], caseState: null, lang };
 }
 
 export function useHistory() {
@@ -43,7 +46,7 @@ export function useHistory() {
   useEffect(() => { setConversations(load()); }, []);
 
   const save = useCallback((conv: Conversation) => {
-    if (conv.messages.length === 0) return;      // don't save empty conversations
+    if (conv.messages.length === 0) return;
     setConversations((prev) => {
       const idx = prev.findIndex((c) => c.id === conv.id);
       const updated = idx >= 0

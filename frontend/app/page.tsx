@@ -46,7 +46,7 @@ export default function Home() {
   const handleUpdate = useCallback((msgs: Msg[], caseState: CaseState) => {
     if (msgs.length === 0) return;
     const title = msgs.find((m) => m.role === "user")?.text.slice(0, 50) ?? "New case";
-    save({ ...activeConv, title, messages: msgs, caseState, updatedAt: typeof window !== "undefined" ? Date.now() : 0, lang });
+    save({ ...activeConv, title, messages: msgs, caseState, updatedAt: 0, lang });
   }, [activeConv, lang, save]);
 
   const handleNewCase = useCallback(() => {
